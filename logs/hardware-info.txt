@@ -1,0 +1,35 @@
+=== DMI ===
+sys_vendor:     AMI
+board_name:     Intel
+product_name:   Intel
+board_vendor:   AMI
+bios_vendor:    American Megatrends Inc.
+bios_version:   V1.3_226
+chassis_type:   3
+
+=== GPU ===
+00:02.0 VGA compatible controller [0300]: Intel Corporation Iris Plus Graphics G7 (Ice Lake) [8086:8a51] (rev 07) (prog-if 00 [VGA controller])
+	DeviceName: Onboard - Video
+	Subsystem: Intel Corporation Device [8086:2212]
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0, Cache Line Size: 64 bytes
+	Interrupts: pin B disabled, MSI(X) routed to IRQ 150
+	Region 0: Memory at 6000000000 (64-bit, non-prefetchable) [size=16M]
+	Region 2: Memory at 4000000000 (64-bit, prefetchable) [size=256M]
+	Region 4: I/O ports at 5000 [size=64]
+	Expansion ROM at 000c0000 [virtual] [disabled] [size=128K]
+	Capabilities: <access denied>
+	Kernel driver in use: i915
+	Kernel modules: i915
+
+
+=== Kernel / Fedora version ===
+Fedora release 44 (Forty Four)
+kernel-6.19.10-300.fc44.x86_64
+kernel-7.0.12-201.fc44.x86_64
+kernel-7.0.13-200.fc44.x86_64
+
+=== Conectores DRM detectados ===
+card1-HDMI-A-1
+card1-HDMI-A-2
