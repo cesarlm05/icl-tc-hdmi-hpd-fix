@@ -4,8 +4,8 @@ Este documento es el reporte que se envía/envió upstream, en inglés (idioma
 de ambos trackers), conservado aquí como registro del diagnóstico. Los logs
 completos que respaldan cada afirmación están en [logs/](logs/).
 
-- GitLab (drm/i915): _pendiente — completar con el link una vez creado el issue_
-- Fedora Bugzilla: _pendiente — completar con el link una vez creado el bug_
+- GitLab (drm/i915): https://gitlab.freedesktop.org/drm/i915/kernel/-/issues/16506
+- Fedora Bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=2493997
 
 ---
 
