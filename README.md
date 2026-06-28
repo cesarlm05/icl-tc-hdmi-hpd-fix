@@ -69,6 +69,11 @@ es el que tiene tu monitor.
 2. Si funciona, corré `apply.sh` (ver script en este mismo directorio) para
    dejarlo permanente, o aplicá los mismos cambios a mano.
 
+`apply.sh` asume un sistema basado en Fedora/RHEL con `grubby` y BLS (usa
+`/etc/kernel/cmdline` y `GRUB_CMDLINE_LINUX` en `/etc/default/grub` como
+fuentes de verdad). En otras distros (Debian/Ubuntu, etc.) aplicá los mismos
+parámetros a mano según el mecanismo de tu bootloader.
+
 ## Limitaciones
 
 Esto es un workaround, no una solución del driver. Si en algún momento

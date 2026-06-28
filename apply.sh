@@ -8,6 +8,9 @@
 #   sudo ./apply.sh --connector HDMI-A-2     # si tu HDMI real está en DDI D/PHY TC2
 #   sudo ./apply.sh --force                  # saltea la detección de hardware
 #   sudo ./apply.sh --dry-run                # muestra los cambios sin aplicarlos
+#
+# Requiere un sistema basado en Fedora/RHEL con grubby + BLS
+# (usa /etc/kernel/cmdline y /etc/default/grub como fuentes de verdad).
 
 set -euo pipefail
 
@@ -31,7 +34,20 @@ if [[ "$DRY_RUN" -eq 0 && "$EUID" -ne 0 ]]; then
   exit 1
 fi
 
-VIDEO_ARGS="video=${EDP_CONN}:d video=${HDMI_CONN}:e"
+EDP_ARG="video=${EDP_CONN}:d"
+HDMI_ARG="video=${HDMI_CONN}:e"
+VIDEO_ARGS="${EDP_ARG} ${HDMI_ARG}"
+
+# Quita 'nomodeset' (si está) y agrega EDP_ARG/HDMI_ARG (si faltan) a una
+# cadena de argumentos de kernel. Idempotente: correrlo dos veces no duplica
+# nada ni depende de que 'nomodeset' esté presente.
+normalize_args() {
+  local args="$1"
+  args=$(echo "$args" | sed -E 's/(^|[[:space:]])nomodeset([[:space:]]|$)/ /g')
+  echo "$args" | grep -qw -- "$EDP_ARG" || args="$args $EDP_ARG"
+  echo "$args" | grep -qw -- "$HDMI_ARG" || args="$args $HDMI_ARG"
+  echo "$args" | tr -s '[:space:]' ' ' | sed -E 's/^ +//; s/ +$//'
+}
 
 echo "== Verificando que el hardware coincide con el patrón conocido =="
 GPU_ID=$(lspci -nn 2>/dev/null | grep -i 'vga.*8086:8a51' || true)
@@ -52,14 +68,44 @@ fi
 CMDLINE_FILE="/etc/kernel/cmdline"
 GRUB_FILE="/etc/default/grub"
 
-if grep -q "video=${HDMI_CONN}:e" "$CMDLINE_FILE" 2>/dev/null; then
-  echo "== Ya aplicado en $CMDLINE_FILE, no hay nada que hacer =="
+if [[ ! -f "$GRUB_FILE" ]]; then
+  echo "No se encontró $GRUB_FILE. Este script asume Fedora/RHEL con grubby+BLS;" >&2
+  echo "en otras distros vas a tener que aplicar los parámetros a mano (ver README.md)." >&2
+  exit 1
+fi
+
+CMDLINE_OLD=""
+CMDLINE_NEW=""
+if [[ -f "$CMDLINE_FILE" ]]; then
+  CMDLINE_OLD=$(cat "$CMDLINE_FILE")
+  CMDLINE_NEW=$(normalize_args "$CMDLINE_OLD")
+else
+  echo "(no existe $CMDLINE_FILE, se omite — no es estándar en todas las distros)"
+fi
+
+GRUB_LINE_OLD=$(grep -oP '(?<=^GRUB_CMDLINE_LINUX=")[^"]*' "$GRUB_FILE" || true)
+if [[ -z "$GRUB_LINE_OLD" ]]; then
+  echo "No se encontró una línea GRUB_CMDLINE_LINUX=\"...\" en $GRUB_FILE." >&2
+  exit 1
+fi
+GRUB_LINE_NEW=$(normalize_args "$GRUB_LINE_OLD")
+
+if [[ "$CMDLINE_OLD" == "$CMDLINE_NEW" && "$GRUB_LINE_OLD" == "$GRUB_LINE_NEW" ]]; then
+  echo "== Ya aplicado, no hay nada que hacer =="
   exit 0
 fi
 
 echo "== Cambios a aplicar =="
-echo "  $CMDLINE_FILE : quitar 'nomodeset', agregar '$VIDEO_ARGS'"
-echo "  $GRUB_FILE     : quitar 'nomodeset', agregar '$VIDEO_ARGS'"
+if [[ -f "$CMDLINE_FILE" && "$CMDLINE_OLD" != "$CMDLINE_NEW" ]]; then
+  echo "  $CMDLINE_FILE:"
+  echo "    antes: $CMDLINE_OLD"
+  echo "    luego: $CMDLINE_NEW"
+fi
+if [[ "$GRUB_LINE_OLD" != "$GRUB_LINE_NEW" ]]; then
+  echo "  $GRUB_FILE (GRUB_CMDLINE_LINUX):"
+  echo "    antes: $GRUB_LINE_OLD"
+  echo "    luego: $GRUB_LINE_NEW"
+fi
 echo "  grubby --update-kernel=ALL --remove-args=nomodeset --args=\"$VIDEO_ARGS\""
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -68,12 +114,16 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
 fi
 
 TS=$(date +%Y%m%d%H%M%S)
-cp "$CMDLINE_FILE" "${CMDLINE_FILE}.bak.${TS}"
 cp "$GRUB_FILE" "${GRUB_FILE}.bak.${TS}"
+if [[ -f "$CMDLINE_FILE" ]]; then
+  cp "$CMDLINE_FILE" "${CMDLINE_FILE}.bak.${TS}"
+  printf '%s\n' "$CMDLINE_NEW" > "$CMDLINE_FILE"
+fi
 
-sed -i "s/nomodeset/${VIDEO_ARGS}/" "$CMDLINE_FILE"
-sed -i "s/nomodeset/${VIDEO_ARGS}/" "$GRUB_FILE"
+GRUB_LINE_NEW_ESCAPED=$(printf '%s' "$GRUB_LINE_NEW" | sed -e 's/[\/&]/\\&/g')
+sed -i -E "s|^GRUB_CMDLINE_LINUX=\".*\"|GRUB_CMDLINE_LINUX=\"${GRUB_LINE_NEW_ESCAPED}\"|" "$GRUB_FILE"
+
 grubby --update-kernel=ALL --remove-args="nomodeset" --args="${VIDEO_ARGS}"
 
-echo "== Listo. Backups en ${CMDLINE_FILE}.bak.${TS} y ${GRUB_FILE}.bak.${TS} =="
+echo "== Listo. Backups en ${GRUB_FILE}.bak.${TS}$( [[ -f "$CMDLINE_FILE" ]] && echo " y ${CMDLINE_FILE}.bak.${TS}" ) =="
 echo "Reiniciá y confirmá con: cat /proc/cmdline ; glxinfo | grep renderer"
